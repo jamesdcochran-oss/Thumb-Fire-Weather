@@ -215,9 +215,11 @@
         layers.hotspots = L.layerGroup().addTo(map);
         layers.buffers = L.layerGroup().addTo(map);
         layers.centers = L.layerGroup().addTo(map);
+        layers.boundary = L.layerGroup().addTo(map);
 
         L.control.layers({}, {
           "🔥 Hotspots": layers.hotspots,
+          "🟥 Thumb boundary": layers.boundary,
           "🟢 Buffers (30 km)": layers.buffers,
           "📍 County centers": layers.centers
         }, { collapsed: true }).addTo(map);
@@ -227,12 +229,23 @@
           const div = L.DomUtil.create("div","legend");
           div.innerHTML = `
             <div class="row"><span class="swatch" style="background:#ef4444"></span>Hotspot</div>
+            <div class="row"><span class="swatch" style="background:#ef4444; opacity:.4"></span>Thumb boundary</div>
             <div class="row"><span class="swatch" style="background:#22c55e"></span>30 km buffer</div>
             <div class="row"><span class="swatch" style="background:#0ea5e9"></span>County center</div>
           `;
           return div;
         };
         legend.addTo(map);
+        drawBoundary();
+      }
+
+      async function drawBoundary(){
+        try {
+          const res = await fetch("./thumb_boundary.geojson", { cache: "no-store" });
+          if(!res.ok) return;
+          const gj = await res.json();
+          L.geoJSON(gj, { style: { color:"#ef4444", weight:2, fillOpacity:0.06 } }).addTo(layers.boundary);
+        } catch(_) { /* boundary layer is optional */ }
       }
 
       function parseCsvLine(line) {
