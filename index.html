@@ -153,11 +153,11 @@
 
       const NOAA_HEADERS = {
         Accept: "application/geo+json",
-        "User-Agent": "Five-Forks-Fire-Weather (https://github.com/jamesdcochran-oss/Five-Forks-Fire-Weather)"
+        "User-Agent": "Thumb-Fire-Weather (https://github.com/jamesdcochran-oss/Thumb-Fire-Weather)"
       };
 
       let map, layers = {};
-      const countyBuffers = new Map();
+      const countyPolys = new Map(); // name -> GeoJSON polygon feature
       let lastHotspotMeta = { source: "none", at: null };
 
       function setBadge(id, state, label){
@@ -191,14 +191,14 @@
         el.textContent = `Data: NOAA NWS & NASA FIRMS · Hotspots source: ${lastHotspotMeta.source} · Updated: ${at}`;
       }
 
-      function getCountyBuffer(county){
-        if(!countyBuffers.has(county.name)) {
-          countyBuffers.set(
-            county.name,
-            turf.circle([county.lon, county.lat], BUFFER_KM, {units:"kilometers", steps:64})
-          );
-        }
-        return countyBuffers.get(county.name);
+      async function loadCountyPolys(){
+        if (countyPolys.size) return;
+        try {
+          const res = await fetch("./counties.geojson", { cache: "no-store" });
+          if(!res.ok) return;
+          const gj = await res.json();
+          (gj.features || []).forEach(f => countyPolys.set(f.properties.name, f));
+        } catch(_) { /* county polygons are optional */ }
       }
 
       function initMap(){
@@ -213,14 +213,14 @@
 
         L.control.scale({ metric: false }).addTo(map);
         layers.hotspots = L.layerGroup().addTo(map);
-        layers.buffers = L.layerGroup().addTo(map);
-        layers.centers = L.layerGroup().addTo(map);
         layers.boundary = L.layerGroup().addTo(map);
+        layers.counties = L.layerGroup().addTo(map);
+        layers.centers = L.layerGroup().addTo(map);
 
         L.control.layers({}, {
           "🔥 Hotspots": layers.hotspots,
           "🟥 Thumb boundary": layers.boundary,
-          "🟢 Buffers (30 km)": layers.buffers,
+          "🗺️ Counties": layers.counties,
           "📍 County centers": layers.centers
         }, { collapsed: true }).addTo(map);
 
@@ -230,7 +230,7 @@
           div.innerHTML = `
             <div class="row"><span class="swatch" style="background:#ef4444"></span>Hotspot</div>
             <div class="row"><span class="swatch" style="background:#ef4444; opacity:.4"></span>Thumb boundary</div>
-            <div class="row"><span class="swatch" style="background:#22c55e"></span>30 km buffer</div>
+            <div class="row"><span class="swatch" style="background:#22c55e; opacity:.5"></span>County</div>
             <div class="row"><span class="swatch" style="background:#0ea5e9"></span>County center</div>
           `;
           return div;
@@ -453,26 +453,30 @@
           <h3>${label.includes("Thunder") ? "⛈️" : "🌤️"} ${name}</h3>
           <div class="dim">Class: ${label}</div>
           <div class="metric">Wx: ${summary}</div>
-          <div class="metric">Hotspots (≤ ${BUFFER_KM} km): <strong>${hotspotCount}</strong></div>
+          <div class="metric">Hotspots (in county): <strong>${hotspotCount}</strong></div>
         `;
         cards.appendChild(el);
       }
 
-      function drawBuffersAndCenters(){
-        layers.buffers.clearLayers();
+      function drawCountiesAndCenters(){
+        layers.counties.clearLayers();
         layers.centers.clearLayers();
-        const circles = [];
+        const shapes = [];
 
         for(const c of COUNTIES){
-          const circle = getCountyBuffer(c);
-          L.geoJSON(circle, { style: { color:"#22c55e", weight:1, fillOpacity:0.08 } }).addTo(layers.buffers);
-          circles.push(circle);
+          const poly = countyPolys.get(c.name);
+          if (poly) {
+            L.geoJSON(poly, { style: { color:"#22c55e", weight:2, fillOpacity:0.05 } })
+              .bindTooltip(c.name, { sticky:true }).addTo(layers.counties);
+            shapes.push(poly);
+          }
           L.circleMarker([c.lat,c.lon], {
             radius:5, color:"#0ea5e9", fillColor:"#0ea5e9", fillOpacity:.9
           }).bindTooltip(c.name).addTo(layers.centers);
         }
 
-        const bbox = turf.bbox(turf.featureCollection(circles));
+        const bounds = shapes.length ? shapes : COUNTIES.map(c => turf.point([c.lon, c.lat]));
+        const bbox = turf.bbox(turf.featureCollection(bounds));
         map.fitBounds([[bbox[1], bbox[0]], [bbox[3], bbox[2]]], { padding:[30,30] });
       }
 
@@ -506,17 +510,18 @@
         const geojson = hotspotResult?.geojson ?? { type:"FeatureCollection", features:[] };
         renderHotspotMeta();
         drawHotspots(geojson, hotspotResult?.source || "unknown");
-        drawBuffersAndCenters();
+        await loadCountyPolys();
+        drawCountiesAndCenters();
 
         const features = geojson.features ?? [];
         const results = await Promise.all(COUNTIES.map(async (county) => {
           const now = await fetchNOAAHourly(county.lat, county.lon);
-          const buffer = getCountyBuffer(county);
-          const count = features.reduce((acc, f) => {
+          const poly = countyPolys.get(county.name);
+          const count = poly ? features.reduce((acc, f) => {
             if(!f.geometry || f.geometry.type !== "Point") return acc;
             const [x,y] = f.geometry.coordinates;
-            return acc + (turf.booleanPointInPolygon(turf.point([x,y]), buffer) ? 1 : 0);
-          },0);
+            return acc + (turf.booleanPointInPolygon(turf.point([x,y]), poly) ? 1 : 0);
+          },0) : 0;
           return { county, now, count };
         }));
 
