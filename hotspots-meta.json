@@ -1,0 +1,28 @@
+{
+  "generated_at": "2026-10-22T16:03:42+00:00",
+  "window_hours": 48,
+  "bbox": {
+    "west": -84.3,
+    "east": -82.0,
+    "south": 42.4,
+    "north": 44.4
+  },
+  "feeds_ok": [
+    {
+      "feed": "NOAA-20 VIIRS",
+      "detections": 10
+    },
+    {
+      "feed": "NOAA-21 VIIRS",
+      "detections": 13
+    },
+    {
+      "feed": "S-NPP VIIRS",
+      "detections": 12
+    }
+  ],
+  "feeds_failed": {},
+  "status": "ok",
+  "detections": 35,
+  "latest_observation": "2026-10-22 0833 UTC"
+}
