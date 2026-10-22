@@ -10,9 +10,9 @@ from datetime import datetime, timezone
 W, E, S, N = -84.3, -82.0, 42.4, 44.4
 BASE = "https://firms.modaps.eosdis.nasa.gov/data/active_fire"
 FEEDS = {
-    "NOAA-20 VIIRS": "noaa-20-viirs-c2/csv/J1_VIIRS_C2_USA_contiguous_and_Hawaii_48h.csv",
-    "NOAA-21 VIIRS": "noaa-21-viirs-c2/csv/J2_VIIRS_C2_USA_contiguous_and_Hawaii_48h.csv",
-    "S-NPP VIIRS": "suomi-npp-viirs-c2/csv/SUOMI_VIIRS_C2_USA_contiguous_and_Hawaii_48h.csv",
+    "NOAA-20 VIIRS": "noaa-20-viirs-c2/csv/J1_VIIRS_C2_USA_contiguous_and_Hawaii_24h.csv",
+    "NOAA-21 VIIRS": "noaa-21-viirs-c2/csv/J2_VIIRS_C2_USA_contiguous_and_Hawaii_24h.csv",
+    "S-NPP VIIRS": "suomi-npp-viirs-c2/csv/SUOMI_VIIRS_C2_USA_contiguous_and_Hawaii_24h.csv",
 }
 FIELDS = ["latitude", "longitude", "bright_ti4", "scan", "track", "acq_date", "acq_time",
           "satellite", "instrument", "confidence", "version", "bright_ti5", "frp", "daynight", "feed"]
@@ -73,7 +73,7 @@ def main():
     rows.sort(key=lambda r: (r["acq_date"], r["acq_time"].zfill(4)), reverse=True)
     meta = {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "window_hours": 48,
+        "window_hours": 24,
         "bbox": {"west": W, "east": E, "south": S, "north": N},
         "feeds_ok": ok,
         "feeds_failed": failed,
