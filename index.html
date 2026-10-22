@@ -510,8 +510,8 @@
         results.forEach(r => renderCountyCard(r.county, r.now, r.count));
 
         const names = [...document.querySelectorAll("#cards .card h3")].map(h => h.textContent);
-        if (!names.some(t => t.includes("Brunswick")) || !names.some(t => t.includes("Greensville"))) {
-          showAlert("Self-check failed: Brunswick and/or Greensville not rendered.");
+        if (!names.some(t => t.includes("Huron")) || !names.some(t => t.includes("Sanilac")) || !names.some(t => t.includes("St. Clair"))) {
+          showAlert("Self-check failed: one or more Thumb counties not rendered.");
         } else {
           hideAlert();
         }
